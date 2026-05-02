@@ -13,6 +13,7 @@
       --card: #1f1f23;   --border: #2d2d33;
       --text: #efeff1;   --muted: #848494;
       --green: #00d474;  --red: #e74c3c;
+      --yellow: #ffb347;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -57,6 +58,7 @@
     .icon-wrap.success { background: rgba(0,212,116,.12);  border: 2px solid var(--green); }
     .icon-wrap.error   { background: rgba(231,76,60,.12);  border: 2px solid var(--red); }
     .icon-wrap.neutral { background: rgba(145,70,255,.12); border: 2px solid var(--purple); }
+    .icon-wrap.sending { background: rgba(255,179,71,.12); border: 2px solid var(--yellow); }
 
     .spinner {
       position: absolute; inset: -4px; border-radius: 50%;
@@ -74,7 +76,28 @@
     h1 { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 10px; }
     .subtitle { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
 
-    /* Token block */
+    /* Status bar */
+    .status-bar {
+      display: none;
+      border-radius: 10px; padding: 14px 18px;
+      font-size: 12px; margin-bottom: 20px;
+      line-height: 1.7; text-align: left;
+    }
+    .status-bar.sending {
+      display: block;
+      background: rgba(255,179,71,.08); border: 1px solid rgba(255,179,71,.3); color: var(--yellow);
+    }
+    .status-bar.ok {
+      display: block;
+      background: rgba(0,212,116,.08); border: 1px solid rgba(0,212,116,.3); color: var(--green);
+    }
+    .status-bar.fail {
+      display: block;
+      background: rgba(231,76,60,.08); border: 1px solid rgba(231,76,60,.3); color: var(--red);
+      white-space: pre-line;
+    }
+
+    /* Token block — fallback якщо не вдалось автовідправити */
     .token-section { display: none; text-align: left; margin-bottom: 20px; }
     .token-label {
       font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
@@ -99,7 +122,7 @@
     .copy-btn:active { transform: scale(.96); }
     .copy-btn.copied { background: var(--green); color: #0e0e10; }
 
-    /* Steps */
+    /* Manual steps (shown only on fallback) */
     .steps {
       display: none; text-align: left;
       background: var(--dark2); border: 1px solid var(--border);
@@ -149,6 +172,12 @@
       padding: 2px 8px; color: var(--purple2);
       font-family: 'Space Mono', monospace; font-size: 11px; user-select: all;
     }
+
+    .close-hint {
+      margin-top: 18px; font-size: 11px; color: var(--muted);
+      animation: fadeIn 1s ease 1s both;
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   </style>
 </head>
 <body>
@@ -163,10 +192,12 @@
   <h1 id="title">Авторизація...</h1>
   <p class="subtitle" id="subtitle">Зчитуємо токен з URL…</p>
 
-  <div class="error-box" id="errorBox"></div>
+  <div class="error-box"  id="errorBox"></div>
+  <div class="status-bar" id="statusBar"></div>
 
+  <!-- Fallback: показується тільки якщо не вдалось надіслати автоматично -->
   <div class="token-section" id="tokenSection">
-    <div class="token-label">✅ Twitch Access Token — скопіюй і встав у бот</div>
+    <div class="token-label">⚠️ Скопіюй токен вручну і встав у бот</div>
     <div class="token-row">
       <div class="token-value" id="tokenValue"></div>
       <button class="copy-btn" id="copyBtn" onclick="copyToken()">
@@ -176,7 +207,7 @@
   </div>
 
   <div class="steps" id="stepsBox">
-    <div class="steps-title">Що робити далі</div>
+    <div class="steps-title">Що робити далі (вручну)</div>
     <div class="step">
       <div class="step-num">1</div>
       <div class="step-text">Натисни <b>«📋 Копіювати»</b> вище</div>
@@ -198,6 +229,10 @@
     Якщо відкрив вручну — просто закрий і запусти авторизацію з бота.
   </div>
 
+  <div id="closeHint" class="close-hint" style="display:none">
+    🎉 Токен передано! Можна закрити цю вкладку.
+  </div>
+
   <div class="redirect-info">
     Redirect URI для Twitch Developer Console:<br/>
     <code id="redirectUri"></code>
@@ -211,26 +246,32 @@
   const fH = new URLSearchParams(window.location.hash.substring(1));
   const fQ = new URLSearchParams(window.location.search.substring(1));
 
-  const token  = fH.get('access_token') || fQ.get('access_token');
-  const errP   = fH.get('error')         || fQ.get('error');
-  const errD   = fH.get('error_description') || fQ.get('error_description') || '';
+  const token = fH.get('access_token') || fQ.get('access_token');
+  const errP  = fH.get('error')         || fQ.get('error');
+  const errD  = fH.get('error_description') || fQ.get('error_description') || '';
 
-  function showSuccess(t) {
-    document.getElementById('iconWrap').className = 'icon-wrap success';
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('iconEmoji').textContent = '✅';
-    document.getElementById('title').textContent = 'Токен отримано!';
-    document.getElementById('subtitle').textContent =
-      'Скопіюй токен нижче і встав у бот: Settings → Access Token → SAVE ALL.';
+  const LOCAL = 'http://localhost:3000';
+
+  function setIcon(type, emoji) {
+    document.getElementById('iconWrap').className = 'icon-wrap ' + type;
+    document.getElementById('spinner').style.display = (type === 'loading' || type === 'sending') ? '' : 'none';
+    document.getElementById('iconEmoji').textContent = emoji;
+  }
+  function setStatus(type, html) {
+    const el = document.getElementById('statusBar');
+    el.className = 'status-bar ' + type;
+    el.innerHTML = html;
+  }
+
+  function showFallback(t) {
+    // Не вдалося надіслати — показуємо ручний варіант
     document.getElementById('tokenValue').textContent = t;
     document.getElementById('tokenSection').style.display = 'block';
     document.getElementById('stepsBox').style.display = 'block';
   }
 
   function showError(msg) {
-    document.getElementById('iconWrap').className = 'icon-wrap error';
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('iconEmoji').textContent = '❌';
+    setIcon('error', '❌');
     document.getElementById('title').textContent = 'Помилка авторизації';
     document.getElementById('subtitle').textContent =
       'Перевір налаштування у Twitch Developer Console.';
@@ -240,9 +281,7 @@
   }
 
   function showNeutral() {
-    document.getElementById('iconWrap').className = 'icon-wrap neutral';
-    document.getElementById('spinner').style.display = 'none';
-    document.getElementById('iconEmoji').textContent = '🔗';
+    setIcon('neutral', '🔗');
     document.getElementById('title').textContent = 'Redirect URI готовий';
     document.getElementById('subtitle').textContent =
       'Вставте URL нижче у Twitch Developer Console → OAuth Redirect URLs.';
@@ -270,9 +309,65 @@
     });
   }
 
+  async function sendTokenToBot(t) {
+    // Крок 1: перевірити чи бот-сервер живий
+    setIcon('sending', '🔄');
+    document.getElementById('title').textContent = 'Токен отримано!';
+    document.getElementById('subtitle').textContent = 'Передаємо токен у програму…';
+    setStatus('sending', '⏳ Підключаємось до програми на localhost:3000…');
+
+    let alive = false;
+    try {
+      const ping = await fetch(LOCAL + '/ping', { method: 'GET', signal: AbortSignal.timeout(3000) });
+      alive = ping.ok;
+    } catch (_) {}
+
+    if (!alive) {
+      // Сервер не відповів — fallback
+      setIcon('error', '⚠️');
+      setStatus('fail',
+        '⚠️ Програма не відповідає на localhost:3000.\n' +
+        'Переконайся, що бот запущений і авторизація ініційована з кнопки «Authorize via Twitch».\n\n' +
+        'Скопіюй токен вручну нижче.');
+      showFallback(t);
+      return;
+    }
+
+    // Крок 2: надіслати токен
+    setStatus('sending', '📤 Передаємо токен у програму…');
+    try {
+      const res = await fetch(LOCAL + '/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: t }),
+        signal: AbortSignal.timeout(5000),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // Успіх!
+        setIcon('success', '✅');
+        document.getElementById('title').textContent = '✅ Токен передано!';
+        document.getElementById('subtitle').textContent =
+          'Програма автоматично отримала токен і зберегла дані. Можна закрити цю вкладку.';
+        setStatus('ok', '🎉 Токен успішно передано у програму! Авторизацію завершено.');
+        document.getElementById('closeHint').style.display = 'block';
+        // Автозакриття через 4 сек
+        setTimeout(() => window.close(), 4000);
+        return;
+      }
+    } catch (_) {}
+
+    // POST не вдався
+    setIcon('error', '⚠️');
+    setStatus('fail',
+      '❌ Не вдалося передати токен у програму.\n' +
+      'Скопіюй токен вручну нижче.');
+    showFallback(t);
+  }
+
   setTimeout(() => {
     if (token) {
-      showSuccess(token);
+      sendTokenToBot(token);
     } else if (errP) {
       let msg = 'Twitch повернув помилку: ' + errP;
       if (errD) msg += '\n' + decodeURIComponent(errD.replace(/\+/g, ' '));
