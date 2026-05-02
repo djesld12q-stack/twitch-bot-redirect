@@ -5,441 +5,282 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Twitch OAuth · Stream Announcer Bot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --purple:  #9146ff;
-      --purple2: #bf94ff;
-      --dark:    #0e0e10;
-      --dark2:   #18181b;
-      --card:    #1f1f23;
-      --border:  #2d2d33;
-      --text:    #efeff1;
-      --muted:   #848494;
-      --green:   #00d474;
-      --red:     #e74c3c;
-      --yellow:  #f7b731;
+      --purple: #9146ff; --purple2: #bf94ff;
+      --dark: #0e0e10;   --dark2: #18181b;
+      --card: #1f1f23;   --border: #2d2d33;
+      --text: #efeff1;   --muted: #848494;
+      --green: #00d474;  --red: #e74c3c;
     }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      background: var(--dark);
-      color: var(--text);
+      background: var(--dark); color: var(--text);
       font-family: 'Space Mono', monospace;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      position: relative;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      overflow-x: hidden; position: relative;
     }
-
-    /* Animated background grid */
     body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(145,70,255,.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(145,70,255,.06) 1px, transparent 1px);
+      content: ''; position: fixed; inset: 0;
+      background-image: linear-gradient(rgba(145,70,255,.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(145,70,255,.05) 1px, transparent 1px);
       background-size: 40px 40px;
-      animation: gridMove 20s linear infinite;
-      pointer-events: none;
-      z-index: 0;
+      animation: gridMove 20s linear infinite; pointer-events: none; z-index: 0;
     }
-
-    /* Glowing blob */
     body::after {
-      content: '';
-      position: fixed;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(145,70,255,.18) 0%, transparent 70%);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 0;
-      animation: blobPulse 4s ease-in-out infinite;
+      content: ''; position: fixed; width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(145,70,255,.15) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      pointer-events: none; z-index: 0; animation: blobPulse 4s ease-in-out infinite;
     }
+    @keyframes gridMove { to { background-position: 40px 40px; } }
+    @keyframes blobPulse { 0%,100%{opacity:.7} 50%{opacity:1} }
 
-    @keyframes gridMove {
-      0%   { background-position: 0 0; }
-      100% { background-position: 40px 40px; }
-    }
-    @keyframes blobPulse {
-      0%, 100% { opacity: .7; transform: translate(-50%,-50%) scale(1); }
-      50%       { opacity: 1;  transform: translate(-50%,-50%) scale(1.08); }
-    }
-
-    /* ── Card ── */
     .card {
-      position: relative;
-      z-index: 1;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 48px 56px;
-      max-width: 520px;
-      width: 92%;
-      text-align: center;
+      position: relative; z-index: 1;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 40px 48px;
+      max-width: 560px; width: 94%; text-align: center;
       box-shadow: 0 0 60px rgba(145,70,255,.15), 0 20px 60px rgba(0,0,0,.5);
-      animation: cardIn .6s cubic-bezier(.34,1.56,.64,1) both;
+      animation: cardIn .5s cubic-bezier(.34,1.4,.64,1) both;
     }
-    @keyframes cardIn {
-      from { opacity: 0; transform: translateY(32px) scale(.96); }
-      to   { opacity: 1; transform: none; }
-    }
+    @keyframes cardIn { from{opacity:0;transform:translateY(28px) scale(.96)} to{opacity:1;transform:none} }
 
-    /* Status icon container */
     .icon-wrap {
-      width: 88px;
-      height: 88px;
-      border-radius: 50%;
-      margin: 0 auto 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
-      position: relative;
+      width: 80px; height: 80px; border-radius: 50%;
+      margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;
+      font-size: 36px; position: relative;
     }
-    .icon-wrap.loading  { background: rgba(145,70,255,.15); border: 2px solid var(--border); }
-    .icon-wrap.success  { background: rgba(0,212,116,.12);  border: 2px solid var(--green); }
-    .icon-wrap.error    { background: rgba(231,76,60,.12);  border: 2px solid var(--red); }
+    .icon-wrap.loading { background: rgba(145,70,255,.15); border: 2px solid var(--border); }
+    .icon-wrap.success { background: rgba(0,212,116,.12);  border: 2px solid var(--green); }
+    .icon-wrap.error   { background: rgba(231,76,60,.12);  border: 2px solid var(--red); }
+    .icon-wrap.neutral { background: rgba(145,70,255,.12); border: 2px solid var(--purple); }
 
-    /* Spinner ring */
     .spinner {
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;
+      position: absolute; inset: -4px; border-radius: 50%;
       border: 3px solid transparent;
-      border-top-color: var(--purple);
-      border-right-color: var(--purple2);
+      border-top-color: var(--purple); border-right-color: var(--purple2);
       animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Title */
     .badge {
-      font-family: 'Syne', sans-serif;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .2em;
-      text-transform: uppercase;
-      color: var(--purple2);
-      margin-bottom: 10px;
+      font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 800;
+      letter-spacing: .2em; text-transform: uppercase;
+      color: var(--purple2); margin-bottom: 10px;
     }
-    h1 {
-      font-family: 'Syne', sans-serif;
-      font-size: 26px;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 12px;
-      color: var(--text);
-    }
-    .subtitle {
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.7;
-      margin-bottom: 32px;
-    }
+    h1 { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+    .subtitle { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
 
-    /* Token display */
-    .token-box {
-      background: var(--dark2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 18px;
-      margin-bottom: 24px;
-      display: none;
-      text-align: left;
-    }
+    /* Token block */
+    .token-section { display: none; text-align: left; margin-bottom: 20px; }
     .token-label {
-      font-size: 10px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
+      font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
     }
+    .token-row { display: flex; gap: 8px; align-items: stretch; }
     .token-value {
-      font-size: 12px;
-      color: var(--purple2);
-      word-break: break-all;
-      line-height: 1.5;
+      flex: 1; background: var(--dark2); border: 1px solid var(--purple);
+      border-radius: 8px; padding: 12px 14px;
+      font-size: 11px; color: var(--purple2);
+      word-break: break-all; line-height: 1.6;
+      user-select: all; cursor: text;
+    }
+    .copy-btn {
+      background: var(--purple); color: #fff; border: none;
+      border-radius: 8px; padding: 0 16px; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;
+      white-space: nowrap; transition: background .2s, transform .1s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .copy-btn:hover  { background: var(--purple2); }
+    .copy-btn:active { transform: scale(.96); }
+    .copy-btn.copied { background: var(--green); color: #0e0e10; }
+
+    /* Steps */
+    .steps {
+      display: none; text-align: left;
+      background: var(--dark2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px 20px; margin-bottom: 20px;
+    }
+    .steps-title {
+      font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+    .step { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start; }
+    .step:last-child { margin-bottom: 0; }
+    .step-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--purple); color: #fff; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    }
+    .step-text { font-size: 12px; color: var(--text); line-height: 1.7; }
+    .step-text code {
+      background: var(--card); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 6px; color: var(--purple2); font-family: 'Space Mono', monospace; font-size: 11px;
     }
 
-    /* Close hint */
-    .close-hint {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      background: rgba(0,212,116,.08);
-      border: 1px solid rgba(0,212,116,.25);
-      border-radius: 10px;
-      padding: 14px 20px;
-      font-size: 13px;
-      color: var(--green);
-      margin-bottom: 24px;
-    }
-    .close-hint svg { flex-shrink: 0; }
-
-    /* Countdown */
-    .countdown {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 10px;
-    }
-    .countdown span {
-      color: var(--yellow);
-      font-weight: 700;
+    /* Error */
+    .error-box {
+      display: none; background: rgba(231,76,60,.08);
+      border: 1px solid rgba(231,76,60,.3); border-radius: 10px;
+      padding: 14px 18px; font-size: 12px; color: var(--red);
+      margin-bottom: 20px; line-height: 1.7; text-align: left; white-space: pre-line;
     }
 
-    /* Error detail */
-    .error-detail {
-      display: none;
-      background: rgba(231,76,60,.08);
-      border: 1px solid rgba(231,76,60,.25);
-      border-radius: 10px;
-      padding: 14px 20px;
-      font-size: 13px;
-      color: var(--red);
-      margin-bottom: 20px;
-      line-height: 1.6;
+    /* Info (direct open) */
+    .info-box {
+      display: none; background: rgba(145,70,255,.08);
+      border: 1px solid rgba(145,70,255,.3); border-radius: 10px;
+      padding: 16px 18px; font-size: 12px; color: var(--text);
+      margin-bottom: 20px; text-align: left; line-height: 1.9;
     }
+    .info-box b { color: var(--purple2); }
 
-    /* Redirect URL info */
+    /* Redirect info */
     .redirect-info {
-      margin-top: 28px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-      font-size: 11px;
-      color: var(--muted);
-      line-height: 1.8;
+      margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--muted); line-height: 2;
     }
     .redirect-info code {
-      background: var(--dark2);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 2px 8px;
-      color: var(--purple2);
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      user-select: all;
-    }
-
-    /* Progress bar */
-    .progress-bar {
-      height: 3px;
-      background: var(--border);
-      border-radius: 999px;
-      margin-bottom: 28px;
-      overflow: hidden;
-      display: none;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--purple), var(--purple2));
-      border-radius: 999px;
-      width: 0%;
-      transition: width .4s ease;
-    }
-
-    /* Dots loader */
-    .dots { display: inline-flex; gap: 4px; }
-    .dots span {
-      width: 6px; height: 6px;
-      background: var(--purple2);
-      border-radius: 50%;
-      animation: dot 1.2s ease-in-out infinite;
-    }
-    .dots span:nth-child(2) { animation-delay: .2s; }
-    .dots span:nth-child(3) { animation-delay: .4s; }
-    @keyframes dot {
-      0%, 80%, 100% { transform: scale(.6); opacity: .4; }
-      40%            { transform: scale(1);  opacity: 1; }
+      background: var(--dark2); border: 1px solid var(--border); border-radius: 5px;
+      padding: 2px 8px; color: var(--purple2);
+      font-family: 'Space Mono', monospace; font-size: 11px; user-select: all;
     }
   </style>
 </head>
 <body>
+<div class="card">
+  <div class="badge">Twitch → Discord Stream Announcer Bot</div>
 
-<div class="card" id="card">
-  <div class="badge">Twitch Stream Announcer Bot</div>
-
-  <!-- Icon -->
   <div class="icon-wrap loading" id="iconWrap">
     <div class="spinner" id="spinner"></div>
     <span id="iconEmoji">🔄</span>
   </div>
 
   <h1 id="title">Авторизація...</h1>
-  <p class="subtitle" id="subtitle">
-    Зчитуємо токен з URL <span class="dots"><span></span><span></span><span></span></span>
-  </p>
+  <p class="subtitle" id="subtitle">Зчитуємо токен з URL…</p>
 
-  <!-- Progress bar -->
-  <div class="progress-bar" id="progressBar">
-    <div class="progress-fill" id="progressFill"></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="token-section" id="tokenSection">
+    <div class="token-label">✅ Twitch Access Token — скопіюй і встав у бот</div>
+    <div class="token-row">
+      <div class="token-value" id="tokenValue"></div>
+      <button class="copy-btn" id="copyBtn" onclick="copyToken()">
+        <span id="copyIcon">📋</span><span id="copyText">Копіювати</span>
+      </button>
+    </div>
   </div>
 
-  <!-- Token display (success) -->
-  <div class="token-box" id="tokenBox">
-    <div class="token-label">✅ Access Token</div>
-    <div class="token-value" id="tokenValue">—</div>
+  <div class="steps" id="stepsBox">
+    <div class="steps-title">Що робити далі</div>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Натисни <b>«📋 Копіювати»</b> вище</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Відкрий бота → вкладка <code>Settings</code> → поле <code>Access Token</code> → вставити</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Натисни <code>SAVE ALL</code> → запусти бота кнопкою <code>START BOT</code></div>
+    </div>
   </div>
 
-  <!-- Close hint (success) -->
-  <div class="close-hint" id="closeHint">
-    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
-      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-        stroke-width="2" d="M9 12l2 2 4-4M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9S16.97 3 12 3z"/>
-    </svg>
-    Токен передано боту. Можна закрити вкладку!
+  <div class="info-box" id="infoBox">
+    <b>Ця сторінка — Redirect URI для Twitch OAuth.</b><br/>
+    Вона відкривається автоматично після натискання<br/>
+    <b>«🔑 Authorize via Twitch»</b> у вкладці Settings бота.<br/><br/>
+    Якщо відкрив вручну — просто закрий і запусти авторизацію з бота.
   </div>
 
-  <!-- Error detail -->
-  <div class="error-detail" id="errorDetail"></div>
-
-  <!-- Countdown -->
-  <div class="countdown" id="countdown"></div>
-
-  <!-- Footer -->
   <div class="redirect-info">
     Redirect URI для Twitch Developer Console:<br/>
-    <code id="redirectUri">—</code>
+    <code id="redirectUri"></code>
   </div>
 </div>
 
 <script>
-  // ── Show the actual redirect URI of this page ──────────────────────────────
-  const THIS_URL = window.location.origin + window.location.pathname;
-  document.getElementById('redirectUri').textContent = THIS_URL;
+  document.getElementById('redirectUri').textContent =
+    window.location.origin + window.location.pathname;
 
-  // ── Parse fragment (#access_token=...&...) OR query (?code=...) ────────────
-  const hash   = window.location.hash.substring(1);
-  const search = window.location.search.substring(1);
+  const fH = new URLSearchParams(window.location.hash.substring(1));
+  const fQ = new URLSearchParams(window.location.search.substring(1));
 
-  const fromHash  = new URLSearchParams(hash);
-  const fromQuery = new URLSearchParams(search);
+  const token  = fH.get('access_token') || fQ.get('access_token');
+  const errP   = fH.get('error')         || fQ.get('error');
+  const errD   = fH.get('error_description') || fQ.get('error_description') || '';
 
-  const accessToken = fromHash.get('access_token') || fromQuery.get('access_token');
-  const errorParam  = fromHash.get('error')        || fromQuery.get('error');
-  const errorDesc   = fromHash.get('error_description') || fromQuery.get('error_description') || '';
-  const tokenType   = fromHash.get('token_type')   || 'bearer';
-  const scopes      = fromHash.get('scope')         || fromQuery.get('scope') || '';
-
-  // ── UI helpers ─────────────────────────────────────────────────────────────
-  function setSuccess(token) {
-    const wrap = document.getElementById('iconWrap');
-    wrap.className = 'icon-wrap success';
+  function showSuccess(t) {
+    document.getElementById('iconWrap').className = 'icon-wrap success';
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('iconEmoji').textContent = '✅';
-
-    document.getElementById('title').textContent = 'Авторизацію завершено!';
-    document.getElementById('subtitle').innerHTML =
-      'Токен успішно отримано і передається боту.';
-
-    // Show token (masked after first 8 chars for security)
-    const masked = token.substring(0, 8) + '••••••••••••••••••••••••••••••';
-    document.getElementById('tokenValue').textContent = masked;
-    document.getElementById('tokenBox').style.display = 'block';
-
-    document.getElementById('closeHint').style.display = 'flex';
-
-    // Progress bar for auto-close
-    const bar = document.getElementById('progressBar');
-    bar.style.display = 'block';
-
-    // Countdown to auto-close
-    let secs = 8;
-    const cd = document.getElementById('countdown');
-    cd.innerHTML = `Вкладка закриється через <span id="secNum">${secs}</span> с`;
-
-    const fill = document.getElementById('progressFill');
-    fill.style.transition = `width ${secs}s linear`;
-    requestAnimationFrame(() => { fill.style.width = '100%'; });
-
-    const interval = setInterval(() => {
-      secs--;
-      const el = document.getElementById('secNum');
-      if (el) el.textContent = secs;
-      if (secs <= 0) {
-        clearInterval(interval);
-        window.close();
-      }
-    }, 1000);
+    document.getElementById('title').textContent = 'Токен отримано!';
+    document.getElementById('subtitle').textContent =
+      'Скопіюй токен нижче і встав у бот: Settings → Access Token → SAVE ALL.';
+    document.getElementById('tokenValue').textContent = t;
+    document.getElementById('tokenSection').style.display = 'block';
+    document.getElementById('stepsBox').style.display = 'block';
   }
 
-  function setError(msg) {
-    const wrap = document.getElementById('iconWrap');
-    wrap.className = 'icon-wrap error';
+  function showError(msg) {
+    document.getElementById('iconWrap').className = 'icon-wrap error';
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('iconEmoji').textContent = '❌';
-
     document.getElementById('title').textContent = 'Помилка авторизації';
-    document.getElementById('subtitle').innerHTML =
-      'Не вдалося отримати токен. Перевір налаштування у боті.';
-
-    const ed = document.getElementById('errorDetail');
-    ed.style.display = 'block';
-    ed.textContent = msg;
-
-    document.getElementById('countdown').innerHTML =
-      'Закрий цю вкладку і спробуй знову.';
+    document.getElementById('subtitle').textContent =
+      'Перевір налаштування у Twitch Developer Console.';
+    const eb = document.getElementById('errorBox');
+    eb.style.display = 'block';
+    eb.textContent = msg;
   }
 
-  function setLoading() {
-    document.getElementById('title').textContent = 'Обробка...';
-    document.getElementById('subtitle').innerHTML =
-      'Перевіряємо параметри URL <span class="dots"><span></span><span></span><span></span></span>';
+  function showNeutral() {
+    document.getElementById('iconWrap').className = 'icon-wrap neutral';
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('iconEmoji').textContent = '🔗';
+    document.getElementById('title').textContent = 'Redirect URI готовий';
+    document.getElementById('subtitle').textContent =
+      'Вставте URL нижче у Twitch Developer Console → OAuth Redirect URLs.';
+    document.getElementById('infoBox').style.display = 'block';
   }
 
-  // ── Forward token to local bot server (localhost:3000) ─────────────────────
-  // The desktop bot runs HTTPServer on localhost:3000.
-  // We replay the hash as query params since hash never reaches the server.
-  function forwardToBot(token) {
-    const params = new URLSearchParams();
-    params.set('access_token', token);
-    if (tokenType) params.set('token_type', tokenType);
-    if (scopes)    params.set('scope', scopes);
-
-    const botUrl = `http://localhost:3000/token?${params.toString()}`;
-
-    // Try fetch first (silent), fall back to img ping
-    fetch(botUrl, { mode: 'no-cors', cache: 'no-store' })
-      .catch(() => {
-        // fallback: invisible img ping
-        const img = new Image();
-        img.src = botUrl;
-      });
+  function copyToken() {
+    const t = document.getElementById('tokenValue').textContent;
+    const btn = document.getElementById('copyBtn');
+    navigator.clipboard.writeText(t).then(() => {
+      btn.classList.add('copied');
+      document.getElementById('copyIcon').textContent = '✅';
+      document.getElementById('copyText').textContent = 'Скопійовано!';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        document.getElementById('copyIcon').textContent = '📋';
+        document.getElementById('copyText').textContent = 'Копіювати';
+      }, 2500);
+    }).catch(() => {
+      const el = document.getElementById('tokenValue');
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(r);
+    });
   }
-
-  // ── Main logic ─────────────────────────────────────────────────────────────
-  setLoading();
 
   setTimeout(() => {
-    if (accessToken) {
-      forwardToBot(accessToken);
-      setSuccess(accessToken);
-    } else if (errorParam) {
-      let msg = `Twitch повернув помилку: ${errorParam}`;
-      if (errorDesc) msg += `\n${decodeURIComponent(errorDesc.replace(/\+/g, ' '))}`;
-      setError(msg);
+    if (token) {
+      showSuccess(token);
+    } else if (errP) {
+      let msg = 'Twitch повернув помилку: ' + errP;
+      if (errD) msg += '\n' + decodeURIComponent(errD.replace(/\+/g, ' '));
+      showError(msg);
     } else {
-      // No token, no error — maybe user opened the page directly
-      document.getElementById('iconWrap').className = 'icon-wrap loading';
-      document.getElementById('spinner').style.display = 'none';
-      document.getElementById('iconEmoji').textContent = '🔗';
-      document.getElementById('title').textContent = 'Redirect URI готовий';
-      document.getElementById('subtitle').innerHTML =
-        'Ця сторінка — Redirect URI для Twitch OAuth.<br/>Вставте URL нижче у поле <b>OAuth Redirect URL</b> у Twitch Developer Console.';
-      document.getElementById('countdown').textContent =
-        'Авторизація почнеться автоматично після натискання кнопки в боті.';
+      showNeutral();
     }
-  }, 600);
+  }, 400);
 </script>
 </body>
 </html>
